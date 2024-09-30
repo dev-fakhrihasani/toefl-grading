@@ -16,18 +16,49 @@
                 TOEFL Grading
             </h1>
             <p class="subtitle">
-                Please upload <b>Excel</b> file
+                Please upload <b>Excel</b> file (.xlsx)
             </p>
         </div>
     </section>
     <section class="section">
         <input type="file" id="fileInput" accept=".xlsx">
-        <button class="button is-success is-small" onclick="transformAndDownload()">Transform and Download</button>
+        <button class="button is-warning is-small" onclick="transformAndDownload()">Proccess</button>
+        <button class="button is-primary is-small" id="downloadButton" style="display: none;" onclick="downloadTransformedFile()">Download</button>
+        <div class="mt-6 table-container">
+            <table class="table is-fullwidth is-hoverable" id="resultsTable" style="display: none">
+                <colgroup>
+                    <col />
+                    <col />
+                    <col span="2" style="background-color: rgb(235, 251, 251);" />
+                    <col span="2" style="background-color: rgb(248, 234, 248);" />
+                    <col span="2" style="background-color: rgb(252, 255, 239);" />
+                    <col style="font-weight: bold;" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Listening</th>
+                        <th>Listening Score</th>
+                        <th>Structure & WE</th>
+                        <th>Structure & WE Score</th>
+                        <th>Reading</th>
+                        <th>Reading Score</th>
+                        <th>Final Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
     </section>
     <script src="
     https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js
     "></script>
     <script>
+
+        let transformedWorkbook;
+
         function transformAndDownload() {
             const inputElement = document.getElementById('fileInput');
             const file = inputElement.files[0];
@@ -41,22 +72,33 @@
                     // Perform the transformation
                     const transformedData = transformGrades(XLSX.read(data, { type: 'binary' }));
 
+                    // Display results in the table
+                    displayResultsInTable(transformedData);
+
+                    // Get the original file name without extension
+                    const originalFileName = file.name.replace(/\.xlsx$/, '');
+
                     // Create a new workbook and sheet
-                    const newWorkbook = XLSX.utils.book_new();
+                    transformedWorkbook = XLSX.utils.book_new();
                     const newSheet = XLSX.utils.aoa_to_sheet(transformedData);
-                    XLSX.utils.book_append_sheet(newWorkbook, newSheet, 'Sheet 1');
+                    XLSX.utils.book_append_sheet(transformedWorkbook, newSheet, 'Sheet 1');
+
+                    // Show the table
+                    resultsTable.style.display = 'table';
+
+                    // Show the download button
+                    document.getElementById('downloadButton').style.display = 'inline-block';
 
                     // Save the new workbook to a blob
-                    // Save the new workbook to a blob
-                    const blob = new Blob(XLSX.writeFile(newWorkbook, 'output.xlsx'));
+                    // const blob = new Blob(XLSX.writeFile(newWorkbook, `${originalFileName}_converted.xlsx`));
 
                     // Create a download link and trigger the download
-                    const a = document.createElement('a');
-                    a.href = URL.createObjectURL(blob);
-                    a.download = 'output.xlsx';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    // const a = document.createElement('a');
+                    // a.href = URL.createObjectURL(blob);
+                    // a.download = `${originalFileName}_converted.xlsx`;
+                    // document.body.appendChild(a);
+                    // a.click();
+                    // document.body.removeChild(a);
                 };
 
                 reader.readAsBinaryString(file);
@@ -103,7 +145,7 @@
                 const email = row[5]; // Assuming Email address is at index 5
                 const listening = row[6]
                 const structure = row[7]
-                const reading = row[7]
+                const reading = row[8]
 
                 const listeningScore = listeningScoresCriteria[row[6]] || 0;   // Use 0 if undefined
                 const structureScore = structureScoresCriteria[row[7]] || 0; // Use 0 if undefined
@@ -118,16 +160,47 @@
                     structureScore,
                     reading,
                     readingScore,
-                    Math.floor(((structureScore + readingScore + listeningScore) * 10) / 3)
+                    Math.round(((structureScore + readingScore + listeningScore) * 10) / 3)
                 ];
             });
 
-            // Replace the header with 'Name', 'Email', and 'Score'
-            transformedData[0] = ['Name', 'Email', 'Listening', 'Listening Score', 'Structure', 'Structure Score', 'Reading', 'Reading Score', 'Score'];
+            // Replace the header with 'Name', 'Email', 'Score' and etc
+            transformedData[0] = ['Name', 'Email', 'Listening', 'Listening Score', 'Structure & WE', 'Structure & WE Score', 'Reading', 'Reading Score', 'Final Score'];
 
             console.log(transformedData);
 
             return transformedData;
+        }
+
+        function displayResultsInTable(transformedData) {
+            const tableBody = document.getElementById('resultsTable').querySelector('tbody');
+            tableBody.innerHTML = ''; // Clear previous table content
+
+            transformedData.slice(1).forEach(row => {
+                const tr = document.createElement('tr');
+                row.forEach((cell, index) => {
+                    const td = document.createElement('td');
+
+                    // Apply bold to the last column (Total Score)
+                    if (index == row.length - 1) {
+                        td.style.fontWeight = 'bold'; // Make the text bold
+                    }
+
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function downloadTransformedFile() {
+            if (transformedWorkbook) {
+                // Download the transformed file
+                const originalFileName = document.getElementById('fileInput').files[0].name.replace(/\.xlsx$/, '');
+                XLSX.writeFile(transformedWorkbook, `${originalFileName}_converted.xlsx`);
+            } else {
+                alert('No converted file to download.');
+            }
         }
     </script>
 </body>
